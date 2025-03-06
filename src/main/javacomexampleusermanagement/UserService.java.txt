@@ -1,0 +1,147 @@
+package com.ihub.www.service;
+
+import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.ihub.www.model.Manager;
+import com.ihub.www.model.User;
+import com.ihub.www.repo.ManagerRepository;
+import com.ihub.www.repo.UserRepository;
+
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+@Service
+@RequiredArgsConstructor
+@Transactional
+@Slf4j
+public class UserService {
+    @Autowired
+    private final UserRepository userRepository;
+    
+    @Autowired
+    private final ManagerRepository managerRepository;
+
+    public User createUser(User user) {
+        validateUserInput(user);
+        // Validate manager if provided
+        if (user.getManager() != null && user.getManager().getManagerId() != null) {
+            Optional<Manager> activeManager = managerRepository.findByManagerIdAndIsActiveTrue(user.getManager().getManagerId());
+            if (activeManager.isEmpty()) {
+                throw new IllegalArgumentException("Invalid or inactive manager ID");
+            }
+            user.setManager(activeManager.get());
+        }
+        user.setPanNum(user.getPanNum().toUpperCase());
+        return userRepository.save(user);
+    }
+
+    public List<User> getUsers(String userId, String mobNum, String managerId) {
+        if (userId != null) return userRepository.findById(userId).map(List::of).orElse(Collections.emptyList());
+        if (mobNum != null) return userRepository.findByMobNum(mobNum).map(List::of).orElse(Collections.emptyList());
+        if (managerId != null) {
+            return managerRepository.findById(managerId)
+                    .map(userRepository::findByManager)
+                    .orElse(Collections.emptyList());
+        }
+        return userRepository.findAll();
+    }
+
+    public void deleteUser(String userId, String mobNum) {
+        if (userId != null) {
+            userRepository.findById(userId)
+                .ifPresentOrElse(userRepository::delete, () -> { throw new IllegalArgumentException("User not found"); });
+        } else if (mobNum != null) {
+            userRepository.findByMobNum(mobNum)
+                .ifPresentOrElse(userRepository::delete, () -> { throw new IllegalArgumentException("User not found"); });
+        } else {
+            throw new IllegalArgumentException("Both user_id and mob_num are missing");
+        }
+    }
+
+    // Single update method accepting updateData as Map<String, Object>
+    public void updateUser(String userId, Map<String, Object> updateData) {
+        userRepository.findById(userId).ifPresentOrElse(user -> {
+            if (updateData.containsKey("full_name"))
+                user.setFullName((String) updateData.get("full_name"));
+            if (updateData.containsKey("mob_num"))
+                user.setMobNum((String) updateData.get("mob_num"));
+            if (updateData.containsKey("pan_num"))
+                user.setPanNum(((String) updateData.get("pan_num")).toUpperCase());
+            if (updateData.containsKey("manager_id")) {
+                String newManagerId = (String) updateData.get("manager_id");
+                Optional<Manager> activeManager = managerRepository.findByManagerIdAndIsActiveTrue(newManagerId);
+                if (activeManager.isEmpty()) {
+                    throw new IllegalArgumentException("Invalid or inactive manager ID for update");
+                }
+                user.setManager(activeManager.get());
+            }
+            user.setUpdatedAt(LocalDateTime.now());
+            userRepository.save(user);
+        }, () -> { throw new IllegalArgumentException("User not found"); });
+    }
+
+    // Bulk update: only allowed for updating manager_id
+    public void bulkUpdateUsers(List<String> userIds, Map<String, Object> updateData) {
+        // Ensure that only manager_id is being updated in bulk
+        if (updateData.keySet().stream().anyMatch(key -> !key.equals("manager_id"))) {
+            throw new IllegalArgumentException("Bulk update only supports updating manager_id");
+        }
+        String newManagerId = (String) updateData.get("manager_id");
+        Optional<Manager> activeManager = managerRepository.findByManagerIdAndIsActiveTrue(newManagerId);
+        if (activeManager.isEmpty()) {
+            throw new IllegalArgumentException("Invalid or inactive manager ID for bulk update");
+        }
+        Manager manager = activeManager.get();
+        for (String userId : userIds) {
+            userRepository.findById(userId).ifPresentOrElse(user -> {
+                // If user already has a manager, mark existing record inactive and create a new record
+                if (user.getManager() != null) {
+                    user.setIsActive(false);
+                    userRepository.save(user);
+                    User newUser = new User();
+                    newUser.setFullName(user.getFullName());
+                    newUser.setMobNum(user.getMobNum());
+                    newUser.setPanNum(user.getPanNum());
+                    newUser.setManager(manager);
+                    newUser.setCreatedAt(user.getCreatedAt());
+                    newUser.setUpdatedAt(LocalDateTime.now());
+                    newUser.setIsActive(true);
+                    userRepository.save(newUser);
+                } else {
+                    // If no existing manager, simply update the manager field
+                    user.setManager(manager);
+                    user.setUpdatedAt(LocalDateTime.now());
+                    userRepository.save(user);
+                }
+            }, () -> log.error("User not found for bulk update: " + userId));
+        }
+    }
+
+    private void validateUserInput(User user) {
+        if (user.getFullName() == null || user.getFullName().isEmpty()) {
+            throw new IllegalArgumentException("Full name must not be empty");
+        }
+        // Adjust mobile number if it contains prefix
+        String mobNum = user.getMobNum();
+        if (mobNum.startsWith("+91")) {
+            mobNum = mobNum.substring(3);
+        } else if (mobNum.startsWith("0")) {
+            mobNum = mobNum.substring(1);
+        }
+        user.setMobNum(mobNum);
+        if (!mobNum.matches("[6-9][0-9]{9}")) {
+            throw new IllegalArgumentException("Invalid mobile number format");
+        }
+        if (!user.getPanNum().matches("[A-Z]{5}[0-9]{4}[A-Z]")) {
+            throw new IllegalArgumentException("Invalid PAN number format");
+        }
+    }
+}

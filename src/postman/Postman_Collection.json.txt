@@ -1,0 +1,65 @@
+{
+  "info": {
+    "_postman_id": "12345678-90ab-cdef-1234-567890abcdef",
+    "name": "User Management APIs",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Create User",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"full_name\": \"Alice Johnson\",\n  \"mob_num\": \"9876543210\",\n  \"pan_num\": \"AABCJ1234D\",\n  \"manager_id\": \"your-manager-id\"\n}"
+        },
+        "url": { "raw": "http://localhost:9090/create_user", "protocol": "http", "host": ["localhost"], "port": "9090", "path": ["create_user"] }
+      }
+    },
+    {
+      "name": "Get Users",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "url": { "raw": "http://localhost:9090/get_users", "protocol": "http", "host": ["localhost"], "port": "9090", "path": ["get_users"] }
+      }
+    },
+    {
+      "name": "Delete User",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": \"your-user-id\"\n}"
+        },
+        "url": { "raw": "http://localhost:9090/delete_user", "protocol": "http", "host": ["localhost"], "port": "9090", "path": ["delete_user"] }
+      }
+    },
+    {
+      "name": "Update User",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_ids\": [\"your-user-id\"],\n  \"update_data\": { \"manager_id\": \"your-new-manager-id\" }\n}"
+        },
+        "url": { "raw": "http://localhost:9090/update_user", "protocol": "http", "host": ["localhost"], "port": "9090", "path": ["update_user"] }
+      }
+    }
+  ]
+}

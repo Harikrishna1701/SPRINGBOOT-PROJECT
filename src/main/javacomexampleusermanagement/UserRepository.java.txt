@@ -1,0 +1,16 @@
+package com.ihub.www.repo;
+
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import com.ihub.www.model.Manager;
+import com.ihub.www.model.User;
+
+@Repository
+	public interface UserRepository extends JpaRepository<User, String> {
+	    Optional<User> findByMobNum(String mobNum);
+	    List<User> findByManager(Manager manager);
+	}
