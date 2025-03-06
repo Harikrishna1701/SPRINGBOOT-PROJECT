@@ -1,0 +1,13 @@
+package com.ihub.www.repo;
+
+import java.util.Optional;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import com.ihub.www.model.Manager;
+
+@Repository
+	public interface ManagerRepository extends JpaRepository<Manager, String> {
+	    Optional<Manager> findByManagerIdAndIsActiveTrue(String managerId);
+	}

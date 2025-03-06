@@ -1,0 +1,103 @@
+package com.ihub.www.controller;
+
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import com.ihub.www.model.User;
+import com.ihub.www.service.UserService;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+@RestController
+@RequestMapping("/users")
+@RequiredArgsConstructor
+@Slf4j
+public class UserController {
+
+    // Using @Autowired is not required with @RequiredArgsConstructor, so it is removed.
+    private final UserService userService;
+
+    // POST /users/create_user
+    @PostMapping("/create_user")
+    public ResponseEntity<?> createUser(@RequestBody User user) {
+        try {
+            // Check for missing keys manually (simple example)
+            if(user.getFullName() == null || user.getFullName().isEmpty() ||
+               user.getMobNum() == null || user.getMobNum().isEmpty() ||
+               user.getPanNum() == null || user.getPanNum().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Missing required fields"));
+            }
+            User createdUser = userService.createUser(user);
+            return ResponseEntity.ok(Map.of("message", "User created successfully", "user", createdUser));
+        } catch(Exception e) {
+            log.error("Error creating user", e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // POST /users/get_users
+    @PostMapping("/get_users")
+    public ResponseEntity<?> getUsers(@RequestBody(required = false) Map<String, String> filter) {
+        // Using a Map for simplicity; in production, use a proper DTO.
+        String userId = filter != null ? filter.get("user_id") : null;
+        String mobNum = filter != null ? filter.get("mob_num") : null;
+        String managerId = filter != null ? filter.get("manager_id") : null;
+        List<User> users = userService.getUsers(userId, mobNum, managerId);
+        return ResponseEntity.ok(Map.of("users", users));
+    }
+
+    // POST /users/delete_user
+    @PostMapping("/delete_user")
+    public ResponseEntity<?> deleteUser(@RequestBody Map<String, String> request) {
+        String userId = request.get("user_id");
+        String mobNum = request.get("mob_num");
+        if (userId == null && mobNum == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Either user_id or mob_num must be provided"));
+        }
+        try {
+            userService.deleteUser(userId, mobNum);
+            return ResponseEntity.ok(Map.of("message", "User deleted successfully"));
+        } catch(Exception e) {
+            log.error("Error deleting user", e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // POST /users/update_user
+    @PostMapping("/update_user")
+    public ResponseEntity<?> updateUser(@RequestBody Map<String, Object> request) {
+        // Check if bulk update is needed
+        if(request.containsKey("user_ids") && request.containsKey("update_data")) {
+            // Bulk update branch
+            @SuppressWarnings("unchecked")
+            List<String> userIds = (List<String>) request.get("user_ids");
+            @SuppressWarnings("unchecked")
+            Map<String, Object> updateData = (Map<String, Object>) request.get("update_data");
+            try {
+                userService.bulkUpdateUsers(userIds, updateData);
+                return ResponseEntity.ok(Map.of("message", "Bulk update successful"));
+            } catch(Exception e) {
+                log.error("Error in bulk update", e);
+                return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            }
+        } else if(request.containsKey("user_id") && request.containsKey("update_data")) {
+            // Single update branch
+            String userId = (String) request.get("user_id");
+            @SuppressWarnings("unchecked")
+            Map<String, Object> updateData = (Map<String, Object>) request.get("update_data");
+            try {
+                userService.updateUser(userId, updateData);
+                return ResponseEntity.ok(Map.of("message", "User updated successfully"));
+            } catch(Exception e) {
+                log.error("Error updating user", e);
+                return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            }
+        } else {
+            return ResponseEntity.badRequest().body(Map.of("error", "Missing required keys for update"));
+        }
+    }
+}
